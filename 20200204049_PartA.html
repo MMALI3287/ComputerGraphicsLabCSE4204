@@ -1,0 +1,147 @@
+<title>Assignment 2</title>
+<canvas id="webglcanvas" width="1000" height="1000"></canvas>
+
+<script>
+  const canvasElement = document.getElementById("webglcanvas");
+  const gl = canvasElement.getContext("webgl");
+
+  const vertexShaderSourceCode = `
+    attribute vec2 attribute_coordinates;
+    attribute vec3 attribute_color_values;
+    varying vec3 varying_color_values;
+    void main() {
+      gl_Position = vec4(attribute_coordinates, 0.0, 1.0);
+      varying_color_values = attribute_color_values;
+    }
+  `;
+
+  const fragmentShaderSourceCode = `
+    precision mediump float;
+    varying vec3 varying_color_values;
+    void main() {
+      gl_FragColor = vec4(varying_color_values, 1.0);
+    }
+  `;
+
+  var compiledVertexShader = gl.createShader(gl.VERTEX_SHADER);
+  gl.shaderSource(compiledVertexShader, vertexShaderSourceCode);
+  gl.compileShader(compiledVertexShader);
+
+  var compiledFragmentShader = gl.createShader(gl.FRAGMENT_SHADER);
+  gl.shaderSource(compiledFragmentShader, fragmentShaderSourceCode);
+  gl.compileShader(compiledFragmentShader);
+
+  const linkedProgram = gl.createProgram();
+  gl.attachShader(linkedProgram, compiledVertexShader);
+  gl.attachShader(linkedProgram, compiledFragmentShader);
+  gl.linkProgram(linkedProgram);
+  gl.useProgram(linkedProgram);
+
+  const attributeLocationCoordinates = gl.getAttribLocation(
+    linkedProgram,
+    "attribute_coordinates"
+  );
+  const attributeLocationColorValues = gl.getAttribLocation(
+    linkedProgram,
+    "attribute_color_values"
+  );
+
+  let circleDataList = [];
+  const predefinedColors = Array.from({ length: 9 }, () => [
+    Math.random(),
+    Math.random(),
+    Math.random(),
+  ]);
+
+  let currentColorIndex = 0;
+
+  function generateCircleVertexData(
+    centerX,
+    centerY,
+    radius,
+    numberOfSegments
+  ) {
+    const circleVertices = [];
+    for (
+      let segmentIndex = 0;
+      segmentIndex <= numberOfSegments;
+      segmentIndex++
+    ) {
+      const angle = (segmentIndex / numberOfSegments) * Math.PI * 2;
+      const vertexX = centerX + radius * Math.cos(angle);
+      const vertexY = centerY + radius * Math.sin(angle);
+      circleVertices.push(vertexX, vertexY);
+    }
+    return circleVertices;
+  }
+
+  function renderAllCircles() {
+    gl.clearColor(0.75, 0.75, 0.75, 1.0);
+    gl.clear(gl.COLOR_BUFFER_BIT);
+
+    for (let i = 0; i < circleDataList.length; i++) {
+      const currentCircleData = circleDataList[i];
+
+      const vertexBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+      gl.bufferData(
+        gl.ARRAY_BUFFER,
+        new Float32Array(currentCircleData.vertices),
+        gl.STATIC_DRAW
+      );
+      gl.vertexAttribPointer(
+        attributeLocationCoordinates,
+        2,
+        gl.FLOAT,
+        false,
+        0,
+        0
+      );
+      gl.enableVertexAttribArray(attributeLocationCoordinates);
+
+      const colorBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+      const colorArray = new Float32Array(
+        (currentCircleData.vertices.length / 2) * 3
+      );
+      for (let j = 0; j < currentCircleData.vertices.length / 2; j++) {
+        colorArray.set(currentCircleData.color, j * 3);
+      }
+      gl.bufferData(gl.ARRAY_BUFFER, colorArray, gl.STATIC_DRAW);
+      gl.vertexAttribPointer(
+        attributeLocationColorValues,
+        3,
+        gl.FLOAT,
+        false,
+        0,
+        0
+      );
+      gl.enableVertexAttribArray(attributeLocationColorValues);
+
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, currentCircleData.vertices.length / 2);
+    }
+  }
+
+  canvasElement.onmousedown = function () {
+    const previousRadius =
+      circleDataList.length > 0
+        ? circleDataList[circleDataList.length - 1].radius
+        : 0.95;
+    const newRadius = previousRadius * 0.85;
+    if (newRadius < 0.01) return;
+
+    const newCircleVertices = generateCircleVertexData(0.0, 0.0, newRadius, 50);
+    const newCircleColor =
+      predefinedColors[currentColorIndex % predefinedColors.length];
+    currentColorIndex++;
+
+    circleDataList.push({
+      vertices: newCircleVertices,
+      color: newCircleColor,
+      radius: newRadius,
+    });
+    renderAllCircles();
+  };
+
+  renderAllCircles();
+</script>
